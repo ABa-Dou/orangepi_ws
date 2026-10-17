@@ -3,16 +3,24 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>
 #include <cstring>
-
+#include "esaylog.hpp"
+#include "protocol_parser.hpp"
 int main()
 {
-    std::cout << "Hello World!" << std::endl;
+    LOGI("Hello World!");
     int fd = serialOpen("/dev/ttyS5", 921600);
     if (fd < 0) {
-        std::cerr << "Failed to open serial port: " << strerror(errno) << std::endl;
+        LOGE("Failed to open serial port: %s", strerror(errno));
         return 1;
     }
-    std::cout << "Serial port opened successfully." << std::endl;
+    ProtocolParser parser;
+    LOGI("Serial port opened successfully.");
+    while (true) {
+        if (serialDataAvail(fd) > 0) {
+            char c = serialGetchar(fd);
+            
+        }
+    }
     serialClose(fd);
     return 0;
 }
