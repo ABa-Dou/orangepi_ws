@@ -15,6 +15,7 @@ constexpr int UART_BAUDRATE_STM32 = 921600;
 
 static SerialManager g_serial;
 static ProtocolParser g_parser;
+static RingBuffer<uint8_t, 8192> g_ringbuffer;
 static EpollWrapper g_epoll(16);
 // 线程池，暂时使用不到
 static ThreadPool g_threadpool(4);
@@ -27,7 +28,7 @@ void on_serial_stm32(int fd, uint32_t events)
             std::vector<uint8_t> buf(avail);
             int n = read(fd, buf.data(), avail);
             if (n > 0) {
-                g_parser.buffer_.write(buf.data(), n);
+                g_ringbuffer.write(buf.data(), n);
             } else if (n < 0) {
                 LOGE("Failed to read from serial port: %s", strerror(errno));
             }
@@ -47,7 +48,7 @@ void parse_thread()
     LOGI("Parse thread started.");
     uint8_t buf[256];
     while (true) {
-        size_t n = g_parser.buffer_.read(buf, sizeof(buf));
+        size_t n = g_ringbuffer.read(buf, sizeof(buf));
         if (n == 0) break;
     }
     LOGI("Parse thread exited.");
@@ -74,7 +75,7 @@ int main()
     std::thread protocol_parse(parse_thread);
 
     rcv_stm32.join();
-    g_parser.buffer_.close();
+    g_ringbuffer.close();
     protocol_parse.join();
 
     g_threadpool.shutdown();
