@@ -7,7 +7,8 @@
 #include <vector>
 #include <cerrno>
 #include <cstdint>
-
+#include "esaylog.hpp"
+#include "wiringSerial.h"
 class EpollWrapper {
 public:
     using EventHandler = std::function<void(int fd, uint32_t events)>;
@@ -34,5 +35,6 @@ private:
     int max_events_;
     std::vector<struct epoll_event> events_;
     std::unordered_map<int, EventHandler> handlers_;
+    void on_serial_stm32(int fd, uint32_t events);
     bool running_ = false;
 };

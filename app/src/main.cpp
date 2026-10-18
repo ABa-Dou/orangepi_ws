@@ -1,46 +1,83 @@
 #include <iostream>
 #include <string>
-#include <wiringPi.h>
-#include <wiringSerial.h>
 #include <cstring>
+#include <unistd.h>
+#include <vector>
+#include <thread>
 #include "esaylog.hpp"
 #include "protocol_parser.hpp"
 #include "epoll_wrapper.hpp"
+#include "serial_manager.hpp"
+#include "thread_pool.hpp"
 
-static int g_serial_fd = -1;
+constexpr const char* UART_DEVICE_STM32 = "/dev/ttyS5";
+constexpr int UART_BAUDRATE_STM32 = 921600;
 
-void on_serial_readable(int fd, uint32_t events)
+static SerialManager g_serial;
+static ProtocolParser g_parser;
+static EpollWrapper g_epoll(16);
+// 线程池，暂时使用不到
+static ThreadPool g_threadpool(4);
+
+void on_serial_stm32(int fd, uint32_t events)
 {
     if (events & EPOLLIN) {
         int avail = serialDataAvail(fd);
-        for (int i = 0; i < avail; ++i) {
-            int c = serialGetchar(fd);
+        if (avail > 0) {
+            std::vector<uint8_t> buf(avail);
+            int n = read(fd, buf.data(), avail);
+            if (n > 0) {
+                g_parser.buffer_.write(buf.data(), n);
+            } else if (n < 0) {
+                LOGE("Failed to read from serial port: %s", strerror(errno));
+            }
         }
     }
+}
+
+void serial_receive_thread()
+{
+    LOGI("Serial receive thread started.");
+    g_epoll.loop();
+    LOGI("Serial receive thread exited.");
+}
+
+void parse_thread()
+{
+    LOGI("Parse thread started.");
+    uint8_t buf[256];
+    while (true) {
+        size_t n = g_parser.buffer_.read(buf, sizeof(buf));
+        if (n == 0) break;
+    }
+    LOGI("Parse thread exited.");
 }
 
 int main()
 {
     LOGI("Hello World!");
 
-    g_serial_fd = serialOpen("/dev/ttyS5", 921600);
-    if (g_serial_fd < 0) {
-        LOGE("Failed to open serial port: %s", strerror(errno));
+    int fd = g_serial.open("stm32", UART_DEVICE_STM32, UART_BAUDRATE_STM32);
+    if (fd < 0) {
         return 1;
     }
 
-    EpollWrapper epoll(16);
-    if (!epoll.add(g_serial_fd, EPOLLIN, on_serial_readable)) {
+    if (!g_epoll.add(fd, EPOLLIN, on_serial_stm32)) {
         LOGE("Failed to add serial fd to epoll.");
-        serialClose(g_serial_fd);
+        g_serial.close("stm32");
         return 1;
     }
 
-    ProtocolParser parser;
-    LOGI("Serial port opened successfully, epoll monitoring started.");
+    LOGI("Serial port opened successfully.");
 
-    epoll.loop();
+    std::thread rcv_stm32(serial_receive_thread);
+    std::thread protocol_parse(parse_thread);
 
-    serialClose(g_serial_fd);
+    rcv_stm32.join();
+    g_parser.buffer_.close();
+    protocol_parse.join();
+
+    g_threadpool.shutdown();
+    g_serial.close_all();
     return 0;
 }

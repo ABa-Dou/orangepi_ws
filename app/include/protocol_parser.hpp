@@ -5,6 +5,7 @@
 class ProtocolParser {
     public:
         ProtocolParser();
-    private:
+    public:
+        RingBuffer<uint8_t, 8192> buffer_;
         
 };

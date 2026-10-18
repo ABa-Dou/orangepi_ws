@@ -23,6 +23,8 @@ add_executable(app
     app/src/main.cpp
     app/src/epoll_wrapper.cpp
     app/src/protocol_parser.cpp
+    app/src/serial_manager.cpp
+    app/src/thread_pool.cpp
 )
 
 target_include_directories(app PRIVATE
@@ -30,7 +32,7 @@ target_include_directories(app PRIVATE
     ${CMAKE_SYSROOT}/usr/include
 )
 # 链接库
-target_link_libraries(app wiringPi wiringPiDev)
+target_link_libraries(app wiringPi wiringPiDev pthread)
 
 # 编译选项
 target_compile_options(app PRIVATE -Wall -O2)
