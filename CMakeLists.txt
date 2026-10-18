@@ -25,6 +25,9 @@ add_executable(app
     app/src/protocol_parser.cpp
     app/src/serial_manager.cpp
     app/src/thread_pool.cpp
+    app/src/tcp_client_manager.cpp
+    app/src/farme_builder.cpp
+
 )
 
 target_include_directories(app PRIVATE

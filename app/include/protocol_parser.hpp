@@ -11,7 +11,7 @@ class ProtocolParser {
         void reset();
 
     private:
-        static constexpr size_t MAX_PAYLOAD = 8192;
+        static constexpr size_t MAX_PAYLOAD = 20480;
         FrameCallback callback_;
         std::vector<uint8_t> pending_;
         void parse();

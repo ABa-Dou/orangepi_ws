@@ -9,16 +9,22 @@
 #include "epoll_wrapper.hpp"
 #include "serial_manager.hpp"
 #include "thread_pool.hpp"
-
+#include "tcp_client_manager.hpp"
+#include "farme_builder.hpp"
 constexpr const char* UART_DEVICE_STM32 = "/dev/ttyS5";
 constexpr int UART_BAUDRATE_STM32 = 921600;
 
 static SerialManager g_serial;
-static ProtocolParser g_parser;
+static TcpClientManager tcp_mgr;
+static ProtocolParser g_parser([](const ParsedFrame&& frame) {
+    std::vector<uint8_t> raw = FrameBuilder::build(frame);
+    tcp_mgr.broadcast(raw.data(), raw.size());
+});
 static RingBuffer<uint8_t, 8192> g_ringbuffer;
 static EpollWrapper g_epoll(16);
 // 线程池，暂时使用不到
 static ThreadPool g_threadpool(4);
+
 
 void on_serial_stm32(int fd, uint32_t events)
 {
@@ -50,6 +56,7 @@ void parse_thread()
     while (true) {
         size_t n = g_ringbuffer.read(buf, sizeof(buf));
         if (n == 0) break;
+        g_parser.feed(buf, n);
     }
     LOGI("Parse thread exited.");
 }
@@ -57,7 +64,12 @@ void parse_thread()
 int main()
 {
     LOGI("Hello World!");
-
+    tcp_mgr.add_server("192.168.31.132", 4587);
+    tcp_mgr.start();
+    tcp_mgr.set_receive_callback([](const std::string& server, const uint8_t* data, size_t len) {
+        LOGI("Received data from server %s, length: %zu", server.c_str(), len);
+        // 这里可以用另一个 Parser 去解析指令
+    });
     int fd = g_serial.open("stm32", UART_DEVICE_STM32, UART_BAUDRATE_STM32);
     if (fd < 0) {
         return 1;
