@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <ctime>
+#include <cstring>
 
 namespace esaylog {
 

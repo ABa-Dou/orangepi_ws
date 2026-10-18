@@ -1,6 +1,8 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <mutex>
+#include <condition_variable>
 template<typename T, size_t N>
 class RingBuffer {
 public:
@@ -33,4 +35,9 @@ private:
     size_t head = 0;
     size_t tail = 0;
     size_t size = 0;
+
+    bool closed_ = false;
+
+    mutable std::mutex mutex_;
+    std::condition_variable not_empty_;
 };
