@@ -1,6 +1,16 @@
 #include "protocol_parser.hpp"
 #include <algorithm>
 #include <utility>
+#include <time.h>
+
+namespace {
+int64_t now_ns()
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1000000000LL + ts.tv_nsec;
+}
+}
 
 namespace {
 constexpr uint8_t HEADER_1 = 0xAA;
@@ -134,11 +144,13 @@ void ProtocolParser::parse() {
         ParsedFrame frame;
         frame.type = pending_[TYPE_OFFSET];
         frame.seq = pending_[SEQ_OFFSET];
-        frame.timestamp_ms =
-            static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET])
-            | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 1]) << 8)
-            | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 2]) << 16)
-            | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 3]) << 24);
+        // frame.timestamp_ms =
+        //     static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET])
+        //     | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 1]) << 8)
+        //     | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 2]) << 16)
+        //     | (static_cast<uint32_t>(pending_[TIMESTAMP_OFFSET + 3]) << 24);
+        //这里不使用上报上来的毫秒时间，暂时使用本系统的纳秒时间。
+        frame.timestamp_ns = now_ns();
 
         frame.payload.assign(
             pending_.begin() + PAYLOAD_OFFSET,
